@@ -62,6 +62,8 @@ DigitalOut led3(LED3);
 InterruptIn sw2(SW2);
 InterruptIn sw3(SW3);
 
+Serial pc(USBTX, USBRX);
+
 bool pause_state = false;
 
 EventQueue queue(32 * EVENTS_EVENT_SIZE);
@@ -72,7 +74,14 @@ bool pause = false;
 
 void Trig_pause() {
     // Safe to use 'printf' in context of thread 't', while IRQ is not.
-    printf("paused!");
+    pc.printf("paused!");
+    pause_state = true;
+}
+
+void Trig_confirm() {
+    // Safe to use 'printf' in context of thread 't', while IRQ is not.
+    pc.printf("confirmed!");
+    pause_state = false;
 }
 
 int main(int argc, char* argv[]) {
@@ -81,8 +90,10 @@ int main(int argc, char* argv[]) {
   led2 = 1;
   led3 = 1;
 
+  t.start(callback(&queue, &EventQueue::dispatch_forever));
+
   sw2.rise(queue.event(Trig_pause));
-  
+  sw3.rise(queue.event(Trig_confirm));
   // Create an area of memory to use for input, output, and intermediate arrays.
   // The size of this will depend on the model you're using, and may need to be
   // determined by experimentation.
