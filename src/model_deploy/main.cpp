@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
   t.start(callback(&queue, &EventQueue::dispatch_forever));
 
   sw2.rise(queue.event(Trig_pause));
-  sw3.rise(queue.event(Trig_confirm));
+  // sw3.rise(queue.event(Trig_confirm));
   // Create an area of memory to use for input, output, and intermediate arrays.
   // The size of this will depend on the model you're using, and may need to be
   // determined by experimentation.
