@@ -74,6 +74,9 @@ void Trig_pause() {
 
 int main(int argc, char* argv[]) {
 
+  led1 = 1;
+  led2 = 1;
+  led3 = 1;
 
   // Create an area of memory to use for input, output, and intermediate arrays.
   // The size of this will depend on the model you're using, and may need to be
@@ -173,6 +176,21 @@ int main(int argc, char* argv[]) {
     // Produce an output
     if (gesture_index < label_num) {
       error_reporter->Report(config.output_message[gesture_index]);
+      if(gesture_index == 0){
+        led1 = 0;
+        led2 = 1;
+        led3 = 1;
+      }
+      if(gesture_index == 1){
+        led1 = 1;
+        led2 = 0;
+        led3 = 1;
+      }
+      if(gesture_index == 2){
+        led1 = 1;
+        led2 = 1;
+        led3 = 0;
+      }
     }
 
   }
