@@ -60,6 +60,9 @@ DigitalOut led2(LED2);
 DigitalOut led3(LED3);
 
 InterruptIn sw2(SW2);
+InterruptIn sw3(SW3);
+
+bool pause_state = false;
 
 EventQueue queue(32 * EVENTS_EVENT_SIZE);
 
@@ -78,6 +81,8 @@ int main(int argc, char* argv[]) {
   led2 = 1;
   led3 = 1;
 
+  sw2.rise(queue.event(Trig_pause));
+  
   // Create an area of memory to use for input, output, and intermediate arrays.
   // The size of this will depend on the model you're using, and may need to be
   // determined by experimentation.
@@ -176,23 +181,26 @@ int main(int argc, char* argv[]) {
     // Produce an output
     if (gesture_index < label_num) {
       error_reporter->Report(config.output_message[gesture_index]);
-      if(gesture_index == 0){
-        led1 = 0;
-        led2 = 1;
-        led3 = 1;
-      }
-      if(gesture_index == 1){
-        led1 = 1;
-        led2 = 0;
-        led3 = 1;
-      }
-      if(gesture_index == 2){
-        led1 = 1;
-        led2 = 1;
-        led3 = 0;
+      if(pause_state == true){
+        if(gesture_index == 0){
+          led1 = 0;
+          led2 = 1;
+          led3 = 1;
+        }
+        if(gesture_index == 1){
+          led1 = 1;
+          led2 = 0;
+          led3 = 1;
+        }
+        if(gesture_index == 2){
+          led1 = 1;
+          led2 = 1;
+          led3 = 0;
+        }  
       }
     }
 
   }
 
 }
+
