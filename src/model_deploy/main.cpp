@@ -14,7 +14,7 @@
 #include <mbed.h>
 #include "uLCD_4DGL.h"
 
-
+uLCD_4DGL uLCD(D1, D0, D2);
 
 // Return the result of the last prediction
 int PredictGesture(float* output) {
@@ -61,7 +61,7 @@ int PredictGesture(float* output) {
 
 int detected_gesture;
 
-uLCD_4DGL uLCD(D1, D0, D2);
+
 
 DigitalOut led1(LED1);
 DigitalOut led2(LED2);
