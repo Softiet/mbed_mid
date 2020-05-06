@@ -2,7 +2,6 @@
 #include "config.h"
 #include "magic_wand_model_data.h"
 
-
 #include "tensorflow/lite/c/common.h"
 #include "tensorflow/lite/micro/kernels/micro_ops.h"
 #include "tensorflow/lite/micro/micro_error_reporter.h"
@@ -10,7 +9,12 @@
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
+
+
 #include <mbed.h>
+#include "uLCD_4DGL.h"
+
+
 
 // Return the result of the last prediction
 int PredictGesture(float* output) {
@@ -55,6 +59,10 @@ int PredictGesture(float* output) {
   return this_predict;
 }
 
+int detected_gesture;
+
+uLCD_4DGL uLCD(D1, D0, D2);
+
 DigitalOut led1(LED1);
 DigitalOut led2(LED2);
 DigitalOut led3(LED3);
@@ -64,25 +72,38 @@ InterruptIn sw3(SW3);
 
 Serial pc(USBTX, USBRX);
 
+
+
 bool pause_state = false;
 
 EventQueue queue(32 * EVENTS_EVENT_SIZE);
 
-Thread t;
+// void uLCD_update();
+
 
 bool pause = false;
+int current_mode = 0;
+// 0: play
 
 void Trig_pause() {
     // Safe to use 'printf' in context of thread 't', while IRQ is not.
-    pc.printf("paused!");
+    //pc.printf("paused!");
+    led1 = 0;
+    led2 = 0;
+    led3 = 0;
     pause_state = true;
 }
 
 void Trig_confirm() {
     // Safe to use 'printf' in context of thread 't', while IRQ is not.
-    pc.printf("confirmed!");
+    //pc.printf("confirmed!");
+    led1 = 1;
+    led2 = 1;
+    led3 = 1;
     pause_state = false;
 }
+
+Thread thread1;
 
 int main(int argc, char* argv[]) {
 
@@ -90,10 +111,11 @@ int main(int argc, char* argv[]) {
   led2 = 1;
   led3 = 1;
 
-  t.start(callback(&queue, &EventQueue::dispatch_forever));
+  sw2.rise(&Trig_pause);
+  sw3.rise(&Trig_confirm);
+  
+  // thread1.start(uLCD_update);
 
-  sw2.rise(queue.event(Trig_pause));
-  // sw3.rise(queue.event(Trig_confirm));
   // Create an area of memory to use for input, output, and intermediate arrays.
   // The size of this will depend on the model you're using, and may need to be
   // determined by experimentation.
@@ -168,7 +190,13 @@ int main(int argc, char* argv[]) {
 
 
   error_reporter->Report("Set up successful...\n");
+
+  
+
   while (true) {
+
+    //writeULCD();
+
     // Attempt to read new data from the accelerometer
     got_data = ReadAccelerometer(error_reporter, model_input->data.f,
                                  input_length, should_clear_buffer);
@@ -192,6 +220,7 @@ int main(int argc, char* argv[]) {
     // Produce an output
     if (gesture_index < label_num) {
       error_reporter->Report(config.output_message[gesture_index]);
+      detected_gesture = gesture_index;
       if(pause_state == true){
         if(gesture_index == 0){
           led1 = 0;
@@ -215,3 +244,16 @@ int main(int argc, char* argv[]) {
 
 }
 
+/*
+void uLCD_update(){
+  uLCD.cls();
+  if(pause_state){
+    uLCD.printf("mode Selection\n");
+  }
+  else{
+    uLCD.printf("currently playing\n");
+
+  }
+
+}
+*/

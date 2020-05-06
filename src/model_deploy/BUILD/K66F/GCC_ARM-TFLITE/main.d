@@ -255,4 +255,4 @@ BUILD/K66F/GCC_ARM-TFLITE/main.o: main.cpp \
  /home/ee2405/mbed-os/platform/mbed_stats.h \
  /home/ee2405/mbed-os/platform/Callback.h \
  /home/ee2405/mbed-os/platform/FunctionPointer.h \
- /home/ee2405/mbed-os/platform/ScopedLock.h
+ /home/ee2405/mbed-os/platform/ScopedLock.h 4DGL-uLCD-SE/uLCD_4DGL.h

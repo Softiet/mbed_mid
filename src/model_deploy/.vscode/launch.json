@@ -36,7 +36,7 @@
             "linux": {
                 "MIMode": "gdb",
                 "MIDebuggerPath": "arm-none-eabi-gdb",
-                "debugServerPath": "pyocd-gdbserver"
+                "debugServerPath": "/home/ee2405/.local/bin/pyocd-gdbserver"
             },
             "osx": {
                 "MIMode": "gdb",
