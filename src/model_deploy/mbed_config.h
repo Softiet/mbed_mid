@@ -206,7 +206,7 @@
 #define MBED_CONF_RTOS_IDLE_THREAD_STACK_SIZE                                 512                                                                                              // set by library:rtos
 #define MBED_CONF_RTOS_IDLE_THREAD_STACK_SIZE_DEBUG_EXTRA                     0                                                                                                // set by library:rtos
 #define MBED_CONF_RTOS_IDLE_THREAD_STACK_SIZE_TICKLESS_EXTRA                  256                                                                                              // set by library:rtos
-#define MBED_CONF_RTOS_MAIN_THREAD_STACK_SIZE                                 8192                                                                                             // set by library:rtos
+#define MBED_CONF_RTOS_MAIN_THREAD_STACK_SIZE                                 0x1000                                                                                             // set by library:rtos
 #define MBED_CONF_RTOS_PRESENT                                                1                                                                                                // set by library:rtos
 #define MBED_CONF_RTOS_THREAD_STACK_SIZE                                      8192                                                                                             // set by library:rtos
 #define MBED_CONF_RTOS_TIMER_THREAD_STACK_SIZE                                768                                                                                              // set by library:rtos

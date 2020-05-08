@@ -255,4 +255,16 @@ BUILD/K66F/GCC_ARM-TFLITE/main.o: main.cpp \
  /home/ee2405/mbed-os/platform/mbed_stats.h \
  /home/ee2405/mbed-os/platform/Callback.h \
  /home/ee2405/mbed-os/platform/FunctionPointer.h \
- /home/ee2405/mbed-os/platform/ScopedLock.h 4DGL-uLCD-SE/uLCD_4DGL.h
+ /home/ee2405/mbed-os/platform/ScopedLock.h 4DGL-uLCD-SE/uLCD_4DGL.h \
+ DA7212/DA7212.h \
+ /home/ee2405/mbed-os-build/targets/TARGET_Freescale/TARGET_MCUXpresso_MCUS/TARGET_K66F/TARGET_FRDM/fsl_clock_config.h \
+ /home/ee2405/mbed-os-build/targets/TARGET_Freescale/TARGET_MCUXpresso_MCUS/TARGET_K66F/drivers/fsl_common.h \
+ /home/ee2405/mbed-os-build/targets/TARGET_Freescale/TARGET_MCUXpresso_MCUS/TARGET_K66F/drivers/fsl_dmamux.h \
+ /home/ee2405/mbed-os-build/targets/TARGET_Freescale/TARGET_MCUXpresso_MCUS/TARGET_K66F/drivers/fsl_gpio.h \
+ /home/ee2405/mbed-os-build/targets/TARGET_Freescale/TARGET_MCUXpresso_MCUS/TARGET_K66F/drivers/fsl_i2c.h \
+ /home/ee2405/mbed-os-build/targets/TARGET_Freescale/TARGET_MCUXpresso_MCUS/TARGET_K66F/drivers/fsl_lmem_cache.h \
+ /home/ee2405/mbed-os-build/targets/TARGET_Freescale/TARGET_MCUXpresso_MCUS/TARGET_K66F/drivers/fsl_port.h \
+ /home/ee2405/mbed-os-build/targets/TARGET_Freescale/TARGET_MCUXpresso_MCUS/TARGET_K66F/drivers/fsl_sai.h \
+ /home/ee2405/mbed-os-build/targets/TARGET_Freescale/TARGET_MCUXpresso_MCUS/TARGET_K66F/drivers/fsl_sai_edma.h \
+ /home/ee2405/mbed-os-build/targets/TARGET_Freescale/TARGET_MCUXpresso_MCUS/TARGET_K66F/drivers/fsl_sai.h \
+ /home/ee2405/mbed-os-build/targets/TARGET_Freescale/TARGET_MCUXpresso_MCUS/TARGET_K66F/drivers/fsl_edma.h

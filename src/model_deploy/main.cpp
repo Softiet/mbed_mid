@@ -14,7 +14,11 @@
 #include <mbed.h>
 #include "uLCD_4DGL.h"
 
+#include <cmath>
+#include "DA7212.h"
+
 uLCD_4DGL uLCD(D1, D0, D2);
+
 
 // Return the result of the last prediction
 int PredictGesture(float* output) {
@@ -72,14 +76,36 @@ InterruptIn sw3(SW3);
 
 Serial pc(USBTX, USBRX);
 
-
-
 bool pause_state = false;
+int mode_selected = 0;
+// 0: forward
+// 1: backward
+// 2: change song
+// 3: Taiko
 
-EventQueue queue(32 * EVENTS_EVENT_SIZE);
+Thread uLCD_thread(osPriorityNormal,0x10000);
+Thread gesture_thread(osPriorityNormal,0x10000);
+Thread button_thread(osPriorityNormal,0x1000);
+Thread test_thread;
+Thread audio_thread;
 
-// void uLCD_update();
 
+EventQueue queue_audio(32 * EVENTS_EVENT_SIZE);
+EventQueue queue_gesture(32 * EVENTS_EVENT_SIZE);
+EventQueue queue_button(32 * EVENTS_EVENT_SIZE);
+EventQueue queue_uLCD(32 * EVENTS_EVENT_SIZE);
+
+void uLCD_update();
+
+void gesture_procedure();
+
+void test_func(){
+  while(true){
+    led1 = !led1;
+    pc.printf("hello from LED1\n");
+    wait(0.1);
+  }
+}
 
 bool pause = false;
 int current_mode = 0;
@@ -87,23 +113,57 @@ int current_mode = 0;
 
 void Trig_pause() {
     // Safe to use 'printf' in context of thread 't', while IRQ is not.
-    //pc.printf("paused!");
+    pc.printf("paused!");
     led1 = 0;
     led2 = 0;
     led3 = 0;
     pause_state = true;
+    queue_uLCD.call(uLCD_update);
+    // queue_uLCD.dispatch();
 }
 
 void Trig_confirm() {
     // Safe to use 'printf' in context of thread 't', while IRQ is not.
-    //pc.printf("confirmed!");
+    pc.printf("confirmed!");
     led1 = 1;
     led2 = 1;
     led3 = 1;
     pause_state = false;
+    queue_uLCD.call(uLCD_update);
+    // queue_uLCD.dispatch();
 }
 
-Thread thread1;
+
+DA7212 audio;
+
+//int16_t waveform[kAudioTxBufferSize];
+
+int song[42] = {
+  261, 261, 392, 392, 440, 440, 392,
+  349, 349, 330, 330, 294, 294, 261,
+  392, 392, 349, 349, 330, 330, 294,
+  392, 392, 349, 349, 330, 330, 294,
+  261, 261, 392, 392, 440, 440, 392,
+  349, 349, 330, 330, 294, 294, 261};
+
+int noteLength[42] = {
+  1, 1, 1, 1, 1, 1, 2,
+  1, 1, 1, 1, 1, 1, 2,
+  1, 1, 1, 1, 1, 1, 2,
+  1, 1, 1, 1, 1, 1, 2,
+  1, 1, 1, 1, 1, 1, 2,
+  1, 1, 1, 1, 1, 1, 2};
+
+/*
+void playNote(int freq){
+  for(int i = 0; i < kAudioTxBufferSize; i++){
+    waveform[i] = (int16_t) (sin((double)i * 2. * M_PI/(double) (kAudioSampleFrequency / freq)) * ((1<<16) - 1));
+  }
+  audio.spk.play(waveform, kAudioTxBufferSize);
+}
+*/
+
+
 
 int main(int argc, char* argv[]) {
 
@@ -111,11 +171,95 @@ int main(int argc, char* argv[]) {
   led2 = 1;
   led3 = 1;
 
-  sw2.rise(&Trig_pause);
-  sw3.rise(&Trig_confirm);
+  // uLCD.cls();
+  // uLCD.printf("Initialize");
   
-  // thread1.start(uLCD_update);
 
+  button_thread.start(callback(&queue_button, &EventQueue::dispatch_forever));
+  
+  sw2.rise(queue_button.event(Trig_pause));
+  sw3.rise(queue_button.event(Trig_confirm));
+  
+
+  uLCD_thread.start(callback(&queue_uLCD, &EventQueue::dispatch_forever));
+
+  pc.printf("Main Entered\n");
+
+  gesture_thread.start(gesture_procedure);
+
+  // test_thread.start(test_func);
+  /*
+  audio_thread.start(callback(&queue_audio, &EventQueue::dispatch_forever));
+
+  for(int i = 0; i < 42; i++){
+    int length = noteLength[i];
+    while(length--){
+      // the loop below will play the note for the duration of 1s
+      for(int j = 0; j < kAudioSampleFrequency / kAudioTxBufferSize; ++j){
+        queue_audio.call(playNote, song[i]);
+      }
+      if(length < 1) wait(1.0);
+    }
+  }
+  */
+  pc.printf("hello?\n");
+  // queue_gesture.call()
+  
+
+}
+
+
+void uLCD_update(){
+  uLCD.cls();
+  if(pause_state){
+    uLCD.color(GREEN);
+    uLCD.printf("mode Selection\n");
+    uLCD.color(WHITE);
+    if(mode_selected == 0){
+      uLCD.textbackground_color(WHITE);
+      uLCD.color(BLACK);
+    }
+    uLCD.printf("Forward\n");
+    uLCD.textbackground_color(BLACK);
+    uLCD.color(WHITE);
+    if(mode_selected == 1){
+      uLCD.textbackground_color(WHITE);
+      uLCD.color(BLACK);
+    }
+    uLCD.printf("Backward\n");
+    uLCD.textbackground_color(BLACK);
+    uLCD.color(WHITE);
+    if(mode_selected == 2){
+      uLCD.textbackground_color(WHITE);
+      uLCD.color(BLACK);
+    }
+    uLCD.printf("Song selection\n");
+    uLCD.textbackground_color(BLACK);
+    uLCD.color(WHITE);
+    if(mode_selected == 3){
+      uLCD.textbackground_color(WHITE);
+      uLCD.color(BLACK);
+    }
+    uLCD.printf("Taiko\n");
+    uLCD.textbackground_color(BLACK);
+    uLCD.color(WHITE);
+  }
+  else{
+    uLCD.color(GREEN);
+    uLCD.printf("currently playing\n");
+
+  }
+
+}
+
+void gesture_procedure(){
+  pc.printf("Gesture Procedure called\n");
+  
+  uLCD.cls();
+  
+  uLCD.printf("Gesture Procedure\n\r");
+  pc.printf("uLCD function called\n\r");
+  
   // Create an area of memory to use for input, output, and intermediate arrays.
   // The size of this will depend on the model you're using, and may need to be
   // determined by experimentation.
@@ -139,6 +283,7 @@ int main(int argc, char* argv[]) {
         model->version(), TFLITE_SCHEMA_VERSION);
     return -1;
   }
+
 
   // Pull in only the operation implementations we need.
   // This relies on a complete list of all the ops needed by this graph.
@@ -164,9 +309,13 @@ int main(int argc, char* argv[]) {
 
   // Build an interpreter to run the model with
 
+  //**********  this stuff here has some problem: 
+  // *********  solution: allocate a large thread size for it
   static tflite::MicroInterpreter static_interpreter(
       model, micro_op_resolver, tensor_arena, kTensorArenaSize, error_reporter);
+
   tflite::MicroInterpreter* interpreter = &static_interpreter;
+  //***********  here ends this error
 
   // Allocate memory from the tensor_arena for the model's tensors
   interpreter->AllocateTensors();
@@ -180,7 +329,6 @@ int main(int argc, char* argv[]) {
     return -1;
   }
 
-
   int input_length = model_input->bytes / sizeof(float);
   TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
   if (setup_status != kTfLiteOk) {
@@ -188,15 +336,10 @@ int main(int argc, char* argv[]) {
     return -1;
   }
 
-
   error_reporter->Report("Set up successful...\n");
-
   
-
+  
   while (true) {
-
-    //writeULCD();
-
     // Attempt to read new data from the accelerometer
     got_data = ReadAccelerometer(error_reporter, model_input->data.f,
                                  input_length, should_clear_buffer);
@@ -220,12 +363,15 @@ int main(int argc, char* argv[]) {
     // Produce an output
     if (gesture_index < label_num) {
       error_reporter->Report(config.output_message[gesture_index]);
+
       detected_gesture = gesture_index;
+      
       if(pause_state == true){
         if(gesture_index == 0){
           led1 = 0;
           led2 = 1;
           led3 = 1;
+          
         }
         if(gesture_index == 1){
           led1 = 1;
@@ -236,24 +382,11 @@ int main(int argc, char* argv[]) {
           led1 = 1;
           led2 = 1;
           led3 = 0;
+          mode_selected = mode_selected==3?0:mode_selected+1;
+          uLCD_update();
         }  
       }
     }
 
   }
-
 }
-
-/*
-void uLCD_update(){
-  uLCD.cls();
-  if(pause_state){
-    uLCD.printf("mode Selection\n");
-  }
-  else{
-    uLCD.printf("currently playing\n");
-
-  }
-
-}
-*/
