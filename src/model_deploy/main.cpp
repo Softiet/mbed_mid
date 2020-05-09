@@ -17,6 +17,7 @@
 #include <cmath>
 #include "DA7212.h"
 
+DA7212 audio;
 uLCD_4DGL uLCD(D1, D0, D2);
 
 
@@ -87,7 +88,7 @@ Thread uLCD_thread(osPriorityNormal,0x10000);
 Thread gesture_thread(osPriorityNormal,0x10000);
 Thread button_thread(osPriorityNormal,0x1000);
 Thread test_thread;
-Thread audio_thread;
+Thread audio_thread(osPriorityNormal,0x8000);;
 
 
 EventQueue queue_audio(32 * EVENTS_EVENT_SIZE);
@@ -133,10 +134,7 @@ void Trig_confirm() {
     // queue_uLCD.dispatch();
 }
 
-
-DA7212 audio;
-
-//int16_t waveform[kAudioTxBufferSize];
+int16_t waveform[kAudioTxBufferSize];
 
 int song[42] = {
   261, 261, 392, 392, 440, 440, 392,
@@ -154,19 +152,19 @@ int noteLength[42] = {
   1, 1, 1, 1, 1, 1, 2,
   1, 1, 1, 1, 1, 1, 2};
 
-/*
 void playNote(int freq){
   for(int i = 0; i < kAudioTxBufferSize; i++){
     waveform[i] = (int16_t) (sin((double)i * 2. * M_PI/(double) (kAudioSampleFrequency / freq)) * ((1<<16) - 1));
   }
   audio.spk.play(waveform, kAudioTxBufferSize);
 }
-*/
+
 
 
 
 int main(int argc, char* argv[]) {
 
+  pc.printf("Main Entered\n");
   led1 = 1;
   led2 = 1;
   led3 = 1;
@@ -183,14 +181,15 @@ int main(int argc, char* argv[]) {
 
   uLCD_thread.start(callback(&queue_uLCD, &EventQueue::dispatch_forever));
 
-  pc.printf("Main Entered\n");
+  
 
   gesture_thread.start(gesture_procedure);
 
   // test_thread.start(test_func);
-  /*
+  
   audio_thread.start(callback(&queue_audio, &EventQueue::dispatch_forever));
-
+  
+  
   for(int i = 0; i < 42; i++){
     int length = noteLength[i];
     while(length--){
@@ -201,7 +200,8 @@ int main(int argc, char* argv[]) {
       if(length < 1) wait(1.0);
     }
   }
-  */
+  audio.spk.pause();
+  
   pc.printf("hello?\n");
   // queue_gesture.call()
   
@@ -249,6 +249,11 @@ void uLCD_update(){
     uLCD.printf("currently playing\n");
 
   }
+
+}
+
+void audio_test(){
+
 
 }
 
