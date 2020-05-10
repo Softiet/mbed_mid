@@ -17,6 +17,9 @@
 #include <cmath>
 #include "DA7212.h"
 
+#include <string.h>
+#include <vector>
+
 DA7212 audio;
 uLCD_4DGL uLCD(D1, D0, D2);
 
@@ -83,6 +86,20 @@ int mode_selected = 0;
 // 1: backward
 // 2: change song
 // 3: Taiko
+// 4: Song selection menu
+bool pause = false;
+int current_mode = 0;
+
+int current_song = 0;
+int song_selected = 0;
+std::vector<string> song_list{"hi","yo","It's me","Mario"};
+std::vector<string> mode_names{
+  "Forward Mode",
+  "Backward Mode",
+  "Song Selection(Unseenable)",
+  "Taiko Mode",
+  "Song Menu(Unseenable)"
+};
 
 Thread uLCD_thread(osPriorityNormal,0x10000);
 Thread gesture_thread(osPriorityNormal,0x10000);
@@ -108,9 +125,7 @@ void test_func(){
   }
 }
 
-bool pause = false;
-int current_mode = 0;
-// 0: play
+
 
 void Trig_pause() {
     // Safe to use 'printf' in context of thread 't', while IRQ is not.
@@ -120,17 +135,32 @@ void Trig_pause() {
     led3 = 0;
     pause_state = true;
     queue_uLCD.call(uLCD_update);
+    audio.spk.pause();
     // queue_uLCD.dispatch();
 }
 
 void Trig_confirm() {
     // Safe to use 'printf' in context of thread 't', while IRQ is not.
-    pc.printf("confirmed!");
+    pc.printf("confirmed!\n\r");
     led1 = 1;
     led2 = 1;
     led3 = 1;
+    if(mode_selected == 2){
+      mode_selected =4;
+      current_mode =4;
+      uLCD_update();
+      return ;
+    }
+    if(mode_selected == 4){
+      mode_selected = 0;
+      current_mode = 0;
+      current_song = song_selected;
+    }
     pause_state = false;
     queue_uLCD.call(uLCD_update);
+    audio.spk.play();
+    pc.printf("audio resumed \n\r");
+    current_mode = mode_selected;
     // queue_uLCD.dispatch();
 }
 
@@ -172,7 +202,6 @@ int main(int argc, char* argv[]) {
   // uLCD.cls();
   // uLCD.printf("Initialize");
   
-
   button_thread.start(callback(&queue_button, &EventQueue::dispatch_forever));
   
   sw2.rise(queue_button.event(Trig_pause));
@@ -203,6 +232,7 @@ int main(int argc, char* argv[]) {
   audio.spk.pause();
   
   pc.printf("hello?\n");
+  //queue_audio.
   // queue_gesture.call()
   
 
@@ -211,7 +241,7 @@ int main(int argc, char* argv[]) {
 
 void uLCD_update(){
   uLCD.cls();
-  if(pause_state){
+  if(pause_state && current_mode <= 3){
     uLCD.color(GREEN);
     uLCD.printf("mode Selection\n");
     uLCD.color(WHITE);
@@ -244,16 +274,32 @@ void uLCD_update(){
     uLCD.textbackground_color(BLACK);
     uLCD.color(WHITE);
   }
+  else if(pause_state && current_mode ==4){
+    uLCD.color(GREEN);
+    uLCD.printf("Song Selection \nMenu %d",current_mode);
+    uLCD.color(WHITE);
+    for(int i =0;i<int(song_list.size());i++){
+      if(song_selected == i){
+        uLCD.textbackground_color(WHITE);
+      }
+      uLCD.text_string(song_list[i].c_str(),0,i+4,FONT_7X8,i==song_selected?BLACK:WHITE);
+      if(song_selected == i){
+        uLCD.textbackground_color(BLACK);
+      }
+    }
+    uLCD.color(GREEN);
+  }
   else{
     uLCD.color(GREEN);
-    uLCD.printf("currently playing\n");
-
+    uLCD.text_string("current mode:",0,1,FONT_7X8,GREEN);
+    uLCD.text_string(mode_names[current_mode].c_str(),0,2,FONT_7X8,WHITE);
+    uLCD.text_string("currently playing:",0,3,FONT_7X8,GREEN);
+    uLCD.text_string(song_list[current_song].c_str(),0,4,FONT_7X8,WHITE);
+    
   }
-
 }
 
-void audio_test(){
-
+void uLCD_song_list_selection(){
 
 }
 
@@ -262,9 +308,9 @@ void gesture_procedure(){
   
   uLCD.cls();
   
-  uLCD.printf("Gesture Procedure\n\r");
-  pc.printf("uLCD function called\n\r");
-  
+  // uLCD.printf("Gesture Procedure\n\r");
+  // pc.printf("uLCD function called\n\r");
+  uLCD_update();
   // Create an area of memory to use for input, output, and intermediate arrays.
   // The size of this will depend on the model you're using, and may need to be
   // determined by experimentation.
@@ -376,7 +422,7 @@ void gesture_procedure(){
           led1 = 0;
           led2 = 1;
           led3 = 1;
-          
+
         }
         if(gesture_index == 1){
           led1 = 1;
@@ -387,9 +433,27 @@ void gesture_procedure(){
           led1 = 1;
           led2 = 1;
           led3 = 0;
-          mode_selected = mode_selected==3?0:mode_selected+1;
+          if(current_mode <= 3){
+            mode_selected = mode_selected==3?0:mode_selected+1;
+          }
+          if(current_mode == 4){
+            song_selected = song_selected == int(song_list.size()-1)?0:song_selected+1;
+          }
           uLCD_update();
         }  
+      }
+      else{
+        if(gesture_index == 0){
+          if(current_mode == 0){
+
+            current_song = current_song==int(song_list.size()-1)?0:current_song+1;
+          }
+          else if(current_mode == 1){
+            current_song = current_song == 0?int(song_list.size()-1):current_song-1;
+          }
+          uLCD_update();
+        }
+        
       }
     }
 
