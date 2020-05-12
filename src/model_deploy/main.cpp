@@ -20,6 +20,9 @@
 #include <string.h>
 #include <vector>
 
+#define bufferLength (32)
+#define signalLength (1024)
+
 DA7212 audio;
 uLCD_4DGL uLCD(D1, D0, D2);
 
@@ -92,7 +95,10 @@ int current_mode = 0;
 
 int current_song = 0;
 int song_selected = 0;
-std::vector<string> song_list{"hi","yo","It's me","Mario"};
+
+int audio_clear = 1;
+int number_of_songs;
+std::vector<string> song_list{"hi","It's me","Mario","You shall not pass"};
 std::vector<string> mode_names{
   "Forward Mode",
   "Backward Mode",
@@ -101,41 +107,52 @@ std::vector<string> mode_names{
   "Song Menu(Unseenable)"
 };
 
-Thread uLCD_thread(osPriorityNormal,0x10000);
+int taiko_score = 0;
+int hit1 = 0;
+int hit2 = 0;
+
+Thread uLCD_thread(osPriorityHigh,0x8000);
 Thread gesture_thread(osPriorityNormal,0x10000);
 Thread button_thread(osPriorityNormal,0x1000);
-Thread test_thread;
-Thread audio_thread(osPriorityNormal,0x8000);;
+Thread audio_sub_thread(osPriorityNormal,0x2000);
+Thread audio_thread(osPriorityHigh,0x8000);
 
 
 EventQueue queue_audio(32 * EVENTS_EVENT_SIZE);
+EventQueue queue_sub_audio(32 * EVENTS_EVENT_SIZE);
 EventQueue queue_gesture(32 * EVENTS_EVENT_SIZE);
 EventQueue queue_button(32 * EVENTS_EVENT_SIZE);
 EventQueue queue_uLCD(32 * EVENTS_EVENT_SIZE);
 
 void uLCD_update();
-
+void uLCD_taiko_score_update();
+void uLCD_taiko_indicator_update();
 void gesture_procedure();
+void play_NOTE();
+void play_song();
 
-void test_func(){
-  while(true){
-    led1 = !led1;
-    pc.printf("hello from LED1\n");
-    wait(0.1);
-  }
-}
+void request_song_sheet();
+
+void flush_serial_buffer(){ 
+  char char1 = 0;
+  while (pc.readable()){
+    char1 = pc.getc(); 
+  } 
+  return; 
+} 
 
 
 
 void Trig_pause() {
     // Safe to use 'printf' in context of thread 't', while IRQ is not.
-    pc.printf("paused!");
+    pc.printf("paused!\n\r");
     led1 = 0;
     led2 = 0;
     led3 = 0;
     pause_state = true;
     queue_uLCD.call(uLCD_update);
     audio.spk.pause();
+    audio_clear = 1;
     // queue_uLCD.dispatch();
 }
 
@@ -154,50 +171,297 @@ void Trig_confirm() {
     if(mode_selected == 4){
       mode_selected = 0;
       current_mode = 0;
-      current_song = song_selected;
+      if(current_song != song_selected){
+        current_song = song_selected;
+        request_song_sheet();
+      }
     }
+    
+    audio_clear = 0;
+    queue_audio.call(play_song);
     pause_state = false;
     queue_uLCD.call(uLCD_update);
-    audio.spk.play();
-    pc.printf("audio resumed \n\r");
+    if(mode_selected == 3){
+      taiko_score = 0;
+      queue_uLCD.call(uLCD_taiko_score_update);
+    }
+    pc.printf("audio played \n\r");
     current_mode = mode_selected;
     // queue_uLCD.dispatch();
 }
 
 int16_t waveform[kAudioTxBufferSize];
 
-int song[42] = {
+std::vector<int> song;
+  /*
+  {
   261, 261, 392, 392, 440, 440, 392,
   349, 349, 330, 330, 294, 294, 261,
   392, 392, 349, 349, 330, 330, 294,
   392, 392, 349, 349, 330, 330, 294,
   261, 261, 392, 392, 440, 440, 392,
   349, 349, 330, 330, 294, 294, 261};
-
-int noteLength[42] = {
+*/
+std::vector<int> noteLength;
+/*[42] = {
   1, 1, 1, 1, 1, 1, 2,
   1, 1, 1, 1, 1, 1, 2,
   1, 1, 1, 1, 1, 1, 2,
   1, 1, 1, 1, 1, 1, 2,
   1, 1, 1, 1, 1, 1, 2,
-  1, 1, 1, 1, 1, 1, 2};
-
+  1, 1, 1, 1, 1, 1, 2
+};
+*/
+std::vector<int> beat1;
+std::vector<int> beat2;
+float speed = 1.0;
 void playNote(int freq){
   for(int i = 0; i < kAudioTxBufferSize; i++){
     waveform[i] = (int16_t) (sin((double)i * 2. * M_PI/(double) (kAudioSampleFrequency / freq)) * ((1<<16) - 1));
   }
-  audio.spk.play(waveform, kAudioTxBufferSize);
+  if(audio_clear != 1){
+    audio.spk.play(waveform, kAudioTxBufferSize);
+  }
+  
+}
+
+void play_song(){
+  pc.printf("we are now in play_song function\n\r");
+  int current_bars = 1;
+  led1 = 0;
+  led2 = 1;
+  audio_clear = 0;
+  int k1 = 0;
+  int k2 = 0;
+  for(int i = 0; i < int(song.size()); i++){
+    int length = noteLength[i];
+    while(length > 0){
+      // the loop below will play the note for the duration of 1s
+      if(current_mode == 3 && audio_clear!= 1){
+        current_bars++;
+        if(beat1[k1] == current_bars){
+          hit1 = 1;
+          k1++;
+          led2 = 0;
+        }
+        else{
+          hit1 = 0;
+          led2 = 1;
+        }
+        if(beat2[k2] == current_bars){
+          hit2 = 1;
+          k2++;
+          led3 = 0;
+        }
+        else{
+          hit2 = 0;
+          led3 = 1;
+        }
+        queue_uLCD.call(uLCD_taiko_indicator_update);
+      }
+      for(int j = 0; j < kAudioSampleFrequency / kAudioTxBufferSize; ++j){
+        queue_sub_audio.call(playNote, song[i]);
+      }
+      if(audio_clear == 1){
+        pc.printf("we left play_song function\n\r");
+        return;
+      }
+      if(length > 0){
+        wait(speed);
+      } 
+      length--;
+    }
+    audio.spk.pause();
+    wait(speed/10);
+  }
+  audio_clear = 1;
+  audio.spk.pause();
+  return;
+}
+
+void stop_song(){
+  audio.spk.pause();
+  audio_clear = 1;
+}
+
+void reset_song(){
+  audio_clear = 0;
+  queue_audio.call(play_song);
+  return ;
+}
+
+char serialInBuffer[bufferLength];
+int serialCount = 0;
+
+void pc_initialize(){
+  pc.printf("hello!\n\r");
+  pc.printf("op_1\n\r");
+  char temp_c = 0;
+  int i =0;
+  // load song list
+  while(temp_c!='\n'){
+    if(pc.readable()){
+      temp_c = pc.getc();
+      serialInBuffer[i] = temp_c;
+      i++;
+    }
+    serialInBuffer[i] = '\0';
+  }
+  number_of_songs = int(atoi(serialInBuffer));
+  pc.printf("numbers of song set: %d\n\r",number_of_songs);
+  
+  song_list.clear();
+  
+  for(int j = 0;j<number_of_songs;j++){
+    i = 0;
+    temp_c = 0;
+    memset(serialInBuffer,0,bufferLength);
+    while(temp_c!='\n'){
+      if(pc.readable()){
+        temp_c = pc.getc();
+        serialInBuffer[i] = temp_c;
+        i++;
+      }
+    }
+    int k =0;
+    pc.printf("song %d :",j);
+    while(serialInBuffer[k]!=0){
+      pc.printf("%c",serialInBuffer[k]);
+      k++;
+    }
+    song_list.push_back(serialInBuffer);
+  }
+  pc.printf("\n\r");
+}
+
+void request_song_sheet(){
+  flush_serial_buffer();
+  pc.printf("op_2 %d\n\r",current_song);
+  audio_clear = 1;
+  audio.spk.pause();
+  // load song sheet
+  char temp_c = 0;
+  int i =0;
+  song.clear();
+  noteLength.clear();
+  memset(serialInBuffer,0,bufferLength);
+  while(temp_c!='\n'){
+    if(pc.readable()){
+      temp_c = pc.getc();
+      serialInBuffer[i] = temp_c;
+      i++;
+    }
+  }
+
+  int total_note_number = atoi(serialInBuffer);
+  pc.printf("total note number: %d\n\r",total_note_number);
+  
+  for(int j = 0;j<total_note_number;j++){
+    i = 0;
+    temp_c = 0;
+    memset(serialInBuffer,0,bufferLength);
+    while(temp_c!='\n'){
+      if(pc.readable()){
+        temp_c = pc.getc();
+        serialInBuffer[i] = temp_c;
+        i++;
+        led2 = !led2;
+      }
+    }
+    song.push_back(atoi(serialInBuffer));
+  }
+  for(int j = 0;j<total_note_number;j++){
+    i = 0;
+    temp_c = 0;
+    memset(serialInBuffer,0,bufferLength);
+    while(temp_c!='\n'){
+      if(pc.readable()){
+        temp_c = pc.getc();
+        serialInBuffer[i] = temp_c;
+        i++;
+        led1 = !led1;
+      }
+    }
+    noteLength.push_back(atoi(serialInBuffer));
+  }
+    i = 0;
+    temp_c = 0;
+    memset(serialInBuffer,0,bufferLength);
+    while(temp_c!='\n'){
+      if(pc.readable()){
+        temp_c = pc.getc();
+        serialInBuffer[i] = temp_c;
+        i++;
+        led3 = !led3;
+      }
+    }
+    speed = atof(serialInBuffer);
+  // beat1 
+  beat1.clear();
+  temp_c = 0;
+  i =0;
+  memset(serialInBuffer,0,bufferLength);
+  while(temp_c!='\n'){
+    if(pc.readable()){
+      temp_c = pc.getc();
+      serialInBuffer[i] = temp_c;
+      i++;
+    }
+  }
+  int beat1_counts = atoi(serialInBuffer);
+  for(int j = 0;j<beat1_counts;j++){
+    i = 0;
+    temp_c = 0;
+    memset(serialInBuffer,0,bufferLength);
+    while(temp_c!='\n'){
+      if(pc.readable()){
+        temp_c = pc.getc();
+        serialInBuffer[i] = temp_c;
+        i++;
+        led1 = !led1;
+      }
+    }
+    beat1.push_back(atoi(serialInBuffer));
+  }
+  // beat2 
+  beat2.clear();
+  temp_c = 0;
+  i =0;
+  memset(serialInBuffer,0,bufferLength);
+  while(temp_c!='\n'){
+    if(pc.readable()){
+      temp_c = pc.getc();
+      serialInBuffer[i] = temp_c;
+      i++;
+    }
+  }
+  int beat2_counts = atoi(serialInBuffer);
+  for(int j = 0;j<beat2_counts;j++){
+    i = 0;
+    temp_c = 0;
+    memset(serialInBuffer,0,bufferLength);
+    while(temp_c!='\n'){
+      if(pc.readable()){
+        temp_c = pc.getc();
+        serialInBuffer[i] = temp_c;
+        i++;
+        led2 = !led2;
+      }
+    }
+    beat2.push_back(atoi(serialInBuffer));
+  }
+  pc.printf("transmission complete!\n\r");
 }
 
 
-
-
 int main(int argc, char* argv[]) {
-
-  pc.printf("Main Entered\n");
+  pc.printf("Main Entered\n\r");
   led1 = 1;
   led2 = 1;
   led3 = 1;
+  pc_initialize();
+  request_song_sheet();
+  queue_audio.call(play_song);
 
   // uLCD.cls();
   // uLCD.printf("Initialize");
@@ -210,31 +474,12 @@ int main(int argc, char* argv[]) {
 
   uLCD_thread.start(callback(&queue_uLCD, &EventQueue::dispatch_forever));
 
-  
-
   gesture_thread.start(gesture_procedure);
 
   // test_thread.start(test_func);
   
-  audio_thread.start(callback(&queue_audio, &EventQueue::dispatch_forever));
-  
-  
-  for(int i = 0; i < 42; i++){
-    int length = noteLength[i];
-    while(length--){
-      // the loop below will play the note for the duration of 1s
-      for(int j = 0; j < kAudioSampleFrequency / kAudioTxBufferSize; ++j){
-        queue_audio.call(playNote, song[i]);
-      }
-      if(length < 1) wait(1.0);
-    }
-  }
-  audio.spk.pause();
-  
-  pc.printf("hello?\n");
-  //queue_audio.
-  // queue_gesture.call()
-  
+  audio_sub_thread.start(callback(&queue_sub_audio, &EventQueue::dispatch_forever));
+  audio_thread.start(callback(&queue_audio, &EventQueue::dispatch_forever));  
 
 }
 
@@ -276,7 +521,7 @@ void uLCD_update(){
   }
   else if(pause_state && current_mode ==4){
     uLCD.color(GREEN);
-    uLCD.printf("Song Selection \nMenu %d",current_mode);
+    uLCD.printf("Song Selection \nMenu");
     uLCD.color(WHITE);
     for(int i =0;i<int(song_list.size());i++){
       if(song_selected == i){
@@ -295,16 +540,38 @@ void uLCD_update(){
     uLCD.text_string(mode_names[current_mode].c_str(),0,2,FONT_7X8,WHITE);
     uLCD.text_string("currently playing:",0,3,FONT_7X8,GREEN);
     uLCD.text_string(song_list[current_song].c_str(),0,4,FONT_7X8,WHITE);
-    
+    if(current_mode == 3){
+      uLCD.text_string("Score:",0,5,FONT_7X8,GREEN);
+    }
   }
 }
 
-void uLCD_song_list_selection(){
+void uLCD_taiko_score_update(){
+  if(current_mode == 3){
+    uLCD.text_string("Score:",0,5,FONT_7X8,GREEN);
+    uLCD.text_string((std::to_string(taiko_score)).c_str(),0,6,FONT_7X8,WHITE);
+  }
+}
 
+void uLCD_taiko_indicator_update(){
+  if(current_mode == 3){
+    uLCD.filled_rectangle(0, 70, 120, 120,BLACK);
+    uLCD.text_string((std::to_string(taiko_score)).c_str(),0,6,FONT_7X8,WHITE);
+    if(hit1 == 1){
+      uLCD.triangle(30,80,10,110,50,110,GREEN);
+      pc.printf("indicator triangle\n\r");
+    }
+    if(hit2 == 1){
+      uLCD.line(90,80,90,110,BLUE);
+      uLCD.line(80,100,90,110,BLUE);
+      uLCD.line(100,100,90,110,BLUE);
+      pc.printf("indicator arrow\n\r");
+    }
+  }
 }
 
 void gesture_procedure(){
-  pc.printf("Gesture Procedure called\n");
+  pc.printf("Gesture Procedure called\n\r");
   
   uLCD.cls();
   
@@ -438,6 +705,7 @@ void gesture_procedure(){
           }
           if(current_mode == 4){
             song_selected = song_selected == int(song_list.size()-1)?0:song_selected+1;
+
           }
           uLCD_update();
         }  
@@ -447,11 +715,36 @@ void gesture_procedure(){
           if(current_mode == 0){
 
             current_song = current_song==int(song_list.size()-1)?0:current_song+1;
+            request_song_sheet();
+            audio.spk.pause();
+            audio_clear = 1;
+            queue_audio.call(play_song);
+            uLCD_update();
           }
           else if(current_mode == 1){
             current_song = current_song == 0?int(song_list.size()-1):current_song-1;
+            request_song_sheet();
+            audio.spk.pause();
+            audio_clear = 1;
+            queue_audio.call(play_song);
+            uLCD_update();
           }
-          uLCD_update();
+        }
+        if(gesture_index == 1){
+          if(current_mode == 3){
+            if(hit1 == 1){
+              hit1 = -1;
+              taiko_score +=10;
+            }
+          }
+        }
+        if(gesture_index == 2){
+          if(current_mode == 3){
+            if(hit2 == 1){
+              hit2 = -1;
+              taiko_score +=10;
+            }
+          }
         }
         
       }

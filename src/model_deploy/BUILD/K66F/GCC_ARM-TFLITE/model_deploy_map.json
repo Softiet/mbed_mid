@@ -13,10 +13,10 @@
     {
         "module": "BUILD/K66F",
         "size": {
-            ".text": 47786,
-            ".data": 673,
-            ".bss": 7224,
-            ".text-delta": 0,
+            ".text": 51070,
+            ".data": 345,
+            ".bss": 7412,
+            ".text-delta": 12,
             ".data-delta": 0,
             ".bss-delta": 0
         }
@@ -24,10 +24,10 @@
     {
         "module": "[fill]",
         "size": {
-            ".text": 319,
+            ".text": 338,
             ".data": 17,
-            ".bss": 49,
-            ".text-delta": 0,
+            ".bss": 53,
+            ".text-delta": 4,
             ".data-delta": 0,
             ".bss-delta": 0
         }
@@ -35,7 +35,7 @@
     {
         "module": "[lib]/c.a",
         "size": {
-            ".text": 34955,
+            ".text": 42420,
             ".data": 2472,
             ".bss": 89,
             ".text-delta": 0,
@@ -90,7 +90,7 @@
     {
         "module": "[lib]/stdc++.a",
         "size": {
-            ".text": 5591,
+            ".text": 5679,
             ".data": 8,
             ".bss": 44,
             ".text-delta": 0,
@@ -100,10 +100,10 @@
     },
     {
         "summary": {
-            "static_ram": 18512,
+            "static_ram": 18376,
             "static_ram_delta": 0,
-            "total_flash": 153805,
-            "total_flash_delta": 0
+            "total_flash": 164333,
+            "total_flash_delta": 16
         }
     }
 ]
